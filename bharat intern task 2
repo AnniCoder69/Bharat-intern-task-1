@@ -1,0 +1,38 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score
+
+# Load your dataset (replace 'data.csv' with your dataset)
+data = pd.read_csv('data.csv')
+
+# Select relevant features (e.g., socio-economic status, age, gender)
+features = ['SocioEconomicStatus', 'Age', 'Gender']
+X = data[features]
+y = data['Survived']  # Assuming 'Survived' is the target variable (1 for survived, 0 for not survived)
+
+# Data preprocessing (e.g., handling missing values, encoding categorical variables)
+X = pd.get_dummies(X, columns=['Gender'], drop_first=True)  # One-hot encoding for gender
+X.fillna(0, inplace=True)  # Replace missing values with 0 (you should handle this more carefully)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Build a decision tree classifier
+clf = DecisionTreeClassifier(random_state=42)
+clf.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred = clf.predict(X_test)
+
+# Calculate accuracy
+accuracy = accuracy_score(y_test, y_pred)
+print(f'Accuracy: {accuracy * 100:.2f}%')
+
+# Predict survival for a new person (replace with actual data)
+new_data = pd.DataFrame({'SocioEconomicStatus': [1], 'Age': [30], 'Gender_Male': [1]})
+prediction = clf.predict(new_data)
+if prediction[0] == 1:
+    print("The person is predicted to survive.")
+else:
+    print("The person is predicted not to survive.")

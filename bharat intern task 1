@@ -1,0 +1,78 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+
+# Load historical stock price data
+# Replace 'AAPL' and '2020-01-01' with the stock symbol and start date you want to predict
+# You can get historical stock data from various sources like Yahoo Finance, Alpha Vantage, etc.
+symbol = 'AAPL'
+start_date = '2020-01-01'
+
+# Assuming you have a CSV file with columns 'Date' and 'Close' for historical prices
+df = pd.read_csv(f'{symbol}_historical_data.csv', parse_dates=['Date'])
+df = df[df['Date'] >= start_date]
+df = df.sort_values(by='Date')
+df.set_index('Date', inplace=True)
+
+# Normalize the data
+scaler = MinMaxScaler()
+df['Close'] = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
+
+# Create a function to prepare the data for LSTM
+def create_sequences(data, sequence_length):
+    sequences = []
+    target = []
+    for i in range(len(data) - sequence_length):
+        sequences.append(data[i:i+sequence_length])
+        target.append(data[i+sequence_length])
+    return np.array(sequences), np.array(target)
+
+# Define hyperparameters
+sequence_length = 10
+batch_size = 64
+epochs = 50
+
+# Split the data into training and testing sets
+train_size = int(len(df) * 0.8)
+train_data = df.iloc[:train_size]['Close'].values
+test_data = df.iloc[train_size:]['Close'].values
+
+# Create sequences for training and testing
+X_train, y_train = create_sequences(train_data, sequence_length)
+X_test, y_test = create_sequences(test_data, sequence_length)
+
+# Build and train the LSTM model
+model = Sequential([
+    LSTM(50, activation='relu', input_shape=(sequence_length, 1)),
+    Dense(1)
+])
+
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1)
+
+# Make predictions on the test data
+y_pred = model.predict(X_test)
+
+# Inverse transform the predictions to get the original scale
+y_pred = scaler.inverse_transform(y_pred)
+y_test = scaler.inverse_transform(y_test.reshape(-1, 1))
+
+# Calculate RMSE (Root Mean Squared Error)
+rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+print(f'Root Mean Squared Error: {rmse}')
+
+# Plot the actual vs. predicted stock prices
+plt.figure(figsize=(12, 6))
+plt.plot(df.index[train_size+sequence_length:], y_test, label='Actual')
+plt.plot(df.index[train_size+sequence_length:], y_pred, label='Predicted')
+plt.xlabel('Date')
+plt.ylabel('Stock Price')
+plt.legend()
+plt.title(f'{symbol} Stock Price Prediction')
+plt.show()
